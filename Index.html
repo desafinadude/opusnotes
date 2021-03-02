@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet" type="text/css">
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@^5.0.0/css/materialdesignicons.min.css" rel="stylesheet" type="text/css">
+    <link href="https://cdn.jsdelivr.net/npm/quasar@1.12.8/dist/quasar.min.css" rel="stylesheet" type="text/css">
+</head>
+
+<body class="bg-white">
+
+    <div id="opus">
+
+        <q-layout view="hHh lpR lFf">
+
+            <q-header bordered>
+               
+                <q-tabs active-bg-color="white" active-color="blue-grey-10" indicator-color="white" v-model="page" @input="v_switchPage" dense align="left" class="bg-brown-13 text-white" :breakpoint="0">
+                    <q-tab name="Notes" icon="mdi-cards"><q-tooltip content-class="tooltip">NOTES</q-tooltip></q-tab>
+                    <q-tab name="Tags" icon="mdi-tag-multiple"><q-tooltip content-class="tooltip">TAGS</q-tooltip></q-tab>
+                    <q-space></q-space>
+                    
+                    <div class="q-px-md">
+                        <q-btn icon="mdi-filter" flat size="sm" @click="v_toggleFilter" v-if="page == 'Notes'">
+                            <q-tooltip content-class="tooltip">FILTER NOTES</q-tooltip>
+                        </q-btn>
+                        <q-btn icon="mdi-card-plus" flat size="sm" color="white" @click="v_writeNote" v-if="page == 'Notes'">
+                            <q-tooltip content-class="tooltip">NEW NOTE</q-tooltip>
+                        </q-btn>
+                        <q-btn icon="mdi-tag-plus" flat size="sm" color="white" @click="v_writeTag" v-if="page == 'Tags'">
+                            <q-tooltip content-class="tooltip">NEW TAG</q-tooltip>
+                        </q-btn>
+                    </div>
+
+                </q-tabs>
+            </q-header>
+
+
+            <q-page-container>
+                
+                <!-- NOTES PAGE -->
+                <q-page class="q-px-sm q-py-md" v-if="page == 'Notes'">
+
+                    <q-select v-if="showFilter == true" v-model="filter" outlined dense dropdown-icon="mdi-menu-down" label="FILTER NOTES" :options="tags" emit-value option-value="title" option-label="title" class="q-mb-md">
+                    </q-select>
+
+                    <!-- NOTES -->   
+                    <div v-if="notes.length > 0" v-for="(note,index) in notes"> 
+                        <q-card flat bordered v-if="filter == null || filter == note.tag" class="q-mb-md bg-grey-2" :style="{'border-bottom': '3px solid ' + note.colour}">
+                            <q-card-section class="text-subtitle2 q-pa-sm" :style="{'color': note.colour}">{{note.title}}</q-card-section>
+                            <q-separator></q-separator>
+                            <q-card-section v-html="note.content" class="q-pa-sm note-content"></q-card-section>
+                            <q-separator></q-separator>
+                            <q-card-actions class="q-pa-sm">
+                                <span v-if="note.tag != null" size="sm" class="text-caption q-ml-sm">{{note.tag}}</span>
+                                <q-space></q-space>
+                                <q-btn label="EDIT"  size="sm" flat @click="v_editNote(index)"></q-btn>
+                                <q-btn label="DELETE"  size="sm" flat @click="v_deleteNote(index)"></q-btn>
+                            </q-card-actions>
+                        </q-card>
+                    </div>
+                    <!-- END NOTES -->
+
+                    <q-dialog v-model="writeNote" full-width>
+                        <q-card>
+                            <q-card-section>
+                                <q-input v-model="writeNote_title" dense outlined label="Title" class="q-mb-md"></q-input>
+                                <q-editor v-model="writeNote_content" min-height="7rem" :toolbar="[['bold', 'italic', 'strike', 'underline']]" class="q-mb-md"></q-editor>
+                                <q-select v-model="writeNote_tag" @input="v_changeNoteColour" dense outlined emit-value option-value="title" option-label="title" :options="tags" dropdown-icon="mdi-menu-down" class="q-mb-md" label="Tag"></q-select>
+                                <q-input :bg-color="writeNote_colour" v-model="writeNote_colour" outlined dense>
+                                    <template v-slot:append>
+                                        <q-icon name="mdi-eyedropper" class="cursor-pointer">
+                                            <q-popup-proxy transition-show="scale" transition-hide="scale">
+                                                <q-color v-model="writeNote_colour" default-view="palette"></q-color>
+                                            </q-popup-proxy>
+                                        </q-icon>
+                                    </template>
+                                </q-input>
+                                
+                                <q-btn label="SAVE" class="full-width q-mt-md" unelevated size="md" color="primary" @click="v_saveNote"></q-btn>
+                            </q-card-section>
+                        </q-card>
+                    </q-dialog>
+
+                    
+
+                </q-page>
+
+                <!-- TAGS PAGE -->
+                <q-page class="q-px-sm q-py-md" v-if="page == 'Tags'">
+
+                    <!-- TAGS -->
+                    <q-card flat bordered v-if="tags.length > 0" v-for="(tag,index) in tags" class="q-mb-md bg-grey-2" :style="{'border-bottom': '3px solid ' + tag.colour}">
+                        <q-card-section class="text-subtitle2 q-pa-sm" :style="{'color': tag.colour}">{{tag.title}}</q-card-section>
+                        <q-separator></q-separator>
+                        <q-card-actions class="q-pa-sm">
+                            <q-btn flat size="sm" label="EDIT" @click="v_editTag(index)"></q-btn>
+                            <q-btn v-if="tag.title != 'General'" flat size="sm" label="DELETE" @click="v_deleteTag(index)"></q-btn>
+                        </q-card-actions>
+                    </q-card>
+                    <!-- END TAGS -->
+
+                    <q-dialog v-model="writeTag" full-width>
+                        <q-card>
+                            <q-card-section>
+                                <q-input v-model="writeTag_title" :disable="editTag != null && writeTag_title == 'General'" dense outlined label="Tag" class="q-mb-md"></q-input>
+                                <q-input filled v-model="writeTag_colour" outlined dense>
+                                    <template v-slot:append>
+                                        <q-icon name="mdi-eyedropper" class="cursor-pointer">
+                                            <q-popup-proxy transition-show="scale" transition-hide="scale">
+                                                <q-color v-model="writeTag_colour" default-view="palette"></q-color>
+                                            </q-popup-proxy>
+                                        </q-icon>
+                                    </template>
+                                </q-input>
+                                <q-btn label="SAVE" class="full-width q-mt-md" unelevated size="md" color="primary" @click="v_saveTag">
+                                </q-btn>
+                            </q-card-section>
+                        </q-card>
+                    </q-dialog>
+
+                </q-page>
+
+                <q-page class="q-px-sm q-py-md" v-if="page == 'Settings'">
+                    HEY
+                </q-page>
+
+                
+
+            </q-page-container>
+
+            <q-footer class="q-pa-sm bg-blue-grey-10">
+                <q-space></q-space>
+                <q-btn icon="mdi-information-variant" flat size="sm" color="white"></q-btn>
+                <q-btn icon="mdi-cogs" @click="page = 'Settings'" flat size="sm" color="white"></q-btn>
+
+            </q-footer>
+
+        </q-layout>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@^2.0.0/dist/vue.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quasar@1.12.8/dist/quasar.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quasar@1.12.11/dist/icon-set/mdi-v5.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.min.js"></script>
+
+    <script>
+        Quasar.iconSet.set(Quasar.iconSet.mdiV5);
+        var opus = new Vue({
+            el: '#opus',
+            data: function () {
+                return {
+                    left: false,
+                    page: 'Notes',
+                    showFilter: false,
+                    filter: null,
+                    tags: [],
+                    notes: [],
+
+                    writeNote: false,
+                    writeNote_title: null,
+                    writeNote_content: null,
+                    writeNote_tag: null,
+                    writeNote_colour: null,
+
+                    editNote: null,
+
+                    writeTag: false,
+                    writeTag_title: null,
+                    writeTag_colour: null,
+
+                    editTag: null,
+                }
+            },
+            beforeCreate() {
+                // console.log('OPUS ---- BEFORE CREATED');
+            },
+            created() {
+                // console.log('OPUS ---- CREATED');
+            },
+            beforeMount() {
+                // console.log('OPUS ---- BEFORE MOUNTED');
+            },
+            mounted() {
+                // console.log('OPUS ---- MOUNTED');
+                google.script.run.withSuccessHandler(this.v_getTags).withFailureHandler(this.v_ShowError).getTags();
+                google.script.run.withSuccessHandler(this.v_getNotes).withFailureHandler(this.v_ShowError).getNotes();
+            },
+            beforeUpdate() {
+                // console.log('OPUS ---- BEFORE UPDATE');
+            },
+            methods: {
+                v_showError() {
+
+                },
+
+                v_switchPage() {
+                    if(this.page == 'Settings') {
+                        console.log('SETTINGS')
+                        google.script.run.withSuccessHandler(this.v_getSettings).withFailureHandler(this.v_ShowError).getSettings();
+                    }
+                },
+                v_getTags(tags) {
+                    if (tags != null && 'returned_tags' in tags) {
+                        this.tags = JSON.parse(JSON.parse(tags.returned_tags));
+                    }
+                },
+                v_getNotes(notes) {
+                    if (notes != null && 'returned_notes' in notes) {
+                        this.notes = JSON.parse(JSON.parse(notes.returned_notes));
+                    }
+                },
+                v_toggleFilter() {
+                    this.showFilter = !this.showFilter;
+                    if(this.showFilter == false) {
+                        this.filter = null;
+                    }
+                },
+
+                // NOTES
+
+                v_writeNote() {
+                    this.editNote = null;
+                    this.writeNote = true;
+                },
+                v_changeNoteColour() {
+                    var tag = _.find(this.tags,{'title':this.writeNote_tag});    
+                    this.writeNote_colour = tag.colour;
+                },
+                v_saveNote() {
+                    if(this.editNote != null) {
+                        this.notes[this.editNote].title = this.writeNote_title;
+                        this.notes[this.editNote].content = this.writeNote_content;
+                        this.notes[this.editNote].tag = this.writeNote_tag;
+                        this.notes[this.editNote].colour = this.writeNote_colour;
+                    } else {
+                        this.notes.push(
+                        {
+                            title: this.writeNote_title,
+                            content: this.writeNote_content,
+                            tag: this.writeNote_tag,
+                            colour: this.writeNote_colour
+                        })
+                    }
+                    google.script.run.withSuccessHandler(this.v_getNotes).withFailureHandler(this.v_ShowError).saveNotes(JSON.stringify(this.notes));
+                    this.writeNote = false;
+                    this.editNote = null;
+                    this.v_resetNote();
+                },
+                v_deleteNote(index) {
+                    this.notes.splice(index, 1);
+                    google.script.run.withSuccessHandler(this.v_getNotes).withFailureHandler(this.v_ShowError).saveNotes(JSON.stringify(this.notes));
+                },
+                v_editNote(index) {
+                    this.editNote = index;
+                    this.writeNote_title = this.notes[index].title;
+                    this.writeNote_content = this.notes[index].content;
+                    this.writeNote_tag = this.notes[index].tag;
+                    this.writeNote_colour = this.notes[index].colour;
+                    this.writeNote = true;
+                },
+                v_resetNote() {
+                    this.writeNote_title = null;
+                    this.writeNote_content = null;
+                    this.writeNote_tag = null;
+                    this.writeNote_colour = null;
+                },
+
+
+                // TAGS
+
+                v_writeTag() {
+                    this.editTag = null;
+                    this.writeTag = true;
+                },
+                v_saveTag() {
+                    if (this.editTag != null) {
+                        this.tags[this.editTag].title = this.writeTag_title;
+                        this.tags[this.editTag].colour = this.writeTag_colour;
+                    } else {
+                        this.tags.push(
+                        {
+                            title: this.writeTag_title,
+                            colour: this.writeTag_colour
+                        })
+                    }
+                    
+                    google.script.run.withSuccessHandler(this.v_getTags).withFailureHandler(this.v_ShowError).saveTags(JSON.stringify(this.tags));
+                    this.writeTag = false;
+                    this.editTag = null;
+                    this.v_resetTag();
+                },
+                v_deleteTag(index) {
+                    if(this.tags[index].title != 'General') {
+                        this.tags.splice(index, 1);
+                        google.script.run.withSuccessHandler(this.v_getTags).withFailureHandler(this.v_ShowError).saveTags(JSON.stringify(this.tags));
+                    }
+                },
+                v_editTag(index) {
+                    this.editTag = index;
+                    this.writeTag_title = this.tags[index].title;
+                    this.writeTag_colour = this.tags[index].colour;
+                    this.writeTag = true;
+                },
+                v_resetTag() {
+                    this.writeTag_title = null;
+                    this.writeTag_colour = null;
+                },
+
+                // SETTINGS
+
+                v_getSettings(settings) {
+                    console.log(settings);
+                    if (settings != null && 'opus' in settings) {
+                        console.log(settings);
+                    }
+                },
+                v_saveSettings() {
+
+                }
+            }
+        })
+    </script>
+    <style>
+        .bg-black-trans {
+            background: rgba(0,0,0,0.4);
+        }
+
+        .tooltip {
+            font-size: 10px;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+        }
+
+        .note-content img {
+            width: 100%;
+        }
+    </style>
+</body>
+
+</html>
